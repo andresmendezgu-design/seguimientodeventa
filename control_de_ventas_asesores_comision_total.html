@@ -1,0 +1,436 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Control de Ventas Asesores</title>
+  <style>
+    :root{--bg:#f5f7fa;--card:#ffffff;--accent:#2b9cff;--muted:#65707a;--success:#29a745;--danger:#e04e4e}
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:#12202b}
+    .container{max-width:1200px;margin:28px auto;padding:18px}
+    header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+    h1{margin:0;font-size:20px}
+    .subtitle{color:var(--muted);font-size:13px}
+
+    .layout{display:grid;grid-template-columns:320px 1fr;gap:16px;margin-top:16px}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 8px 20px rgba(10,18,30,0.06)}
+
+    /* left panel: controls */
+    .left .section{margin-bottom:12px}
+    label{display:block;font-size:13px;color:var(--muted);margin-top:8px}
+    input[type=text], input[type=number], input[type=date], select{width:100%;padding:10px;border-radius:8px;border:1px solid #e6edf6;margin-top:6px}
+    button{background:var(--accent);color:#fff;border:0;padding:10px 12px;border-radius:8px;cursor:pointer}
+    .btn-ghost{background:#eef5ff;color:var(--accent);border:1px solid rgba(43,156,255,0.12)}
+    .small{font-size:13px;color:var(--muted)}
+
+    /* right: dashboard */
+    .top-cards{display:flex;gap:12px;flex-wrap:wrap}
+    .card.stat{flex:1;min-width:160px}
+    .stat .big{font-size:20px;font-weight:700}
+    .progress-wrap{margin-top:8px}
+    .goal-bar{height:12px;background:#eef6ff;border-radius:999px;overflow:hidden}
+    .goal-bar > div{height:100%;background:var(--success);width:0%}
+
+    .chart-placeholder{height:140px;border-radius:8px;background:linear-gradient(90deg,#fbfdff,#f3f7ff);display:flex;align-items:center;justify-content:center;color:var(--muted)}
+
+    .history-table{width:100%;border-collapse:collapse;margin-top:12px}
+    .history-table th,.history-table td{padding:8px;border-bottom:1px solid #f0f4f8;text-align:left}
+
+    .controls-row{display:flex;gap:8px;align-items:center}
+    .muted{color:var(--muted)}
+    .center{display:flex;align-items:center;justify-content:center}
+
+    @media (max-width:980px){.layout{grid-template-columns:1fr}.top-cards{flex-direction:column}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Control de Ventas Asesores</h1>
+        <div class="subtitle">Dashboard para seguimiento de metas, unidades, facturas y promedios — histórico diario</div>
+      </div>
+      <div class="small">Datos guardados localmente (localStorage). Exporta o sincroniza si lo deseas.</div>
+    </header>
+
+    <div class="layout">
+      <!-- LEFT: Form & metas -->
+      <aside class="left">
+        <div class="card">
+          <h3>Registrar venta diaria</h3>
+          <div class="small">El asesor registra al final del día: unidades totales, facturas realizadas y total vendido.</div>
+
+          <label>Fecha</label>
+          <input id="saleDate" type="date" />
+
+          <label>Asesor</label>
+          <select id="advisorSelect"></select>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <input id="newAdvisorName" type="text" placeholder="Nuevo asesor (nombre)" />
+            <button id="addAdvisorBtn" class="btn-ghost">Añadir</button>
+          </div>
+
+          <label>Unidades vendidas</label>
+          <input id="unitsInput" type="number" min="0" value="0" />
+
+          <label>Número de facturas</label>
+          <input id="invoicesInput" type="number" min="1" value="1" />
+
+          <label>Valor total de la venta</label>
+          <input id="totalInput" type="number" min="0" step="0.01" value="0" />
+
+          <div style="display:flex;gap:8px;margin-top:12px">
+            <button id="saveSaleBtn">Guardar registro</button>
+            <button id="clearFormBtn" class="btn-ghost">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Metas por asesor</h3>
+          <div class="small">Asigna o edita la meta total para cada asesor.</div>
+
+          <label>Asesor</label>
+          <select id="metaAdvisorSelect"></select>
+          <label>Meta total (monto)</label>
+          <input id="metaInput" type="number" min="0" step="0.01" value="0" />
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="saveMetaBtn">Guardar meta</button>
+            <button id="deleteMetaBtn" class="btn-ghost">Eliminar meta</button>
+          </div>
+        </div>
+
+        <div class="card" style="margin-top:12px">
+          <h3>Acciones</h3>
+          <div style="display:flex;gap:8px;margin-top:8px">
+            <button id="exportCsvBtn" class="btn-ghost">Exportar CSV</button>
+            <button id="resetAllBtn" class="btn-ghost">Borrar todo</button>
+          </div>
+          <div class="small" style="margin-top:8px">Puedes exportar los registros o borrar los datos locales.</div>
+        </div>
+      </aside>
+
+      <!-- RIGHT: Dashboard -->
+      <main>
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center">
+            <div>
+              <h3 id="dashboardTitle">Visor: (selecciona un asesor)</h3>
+              <div class="muted" id="dashboardSubtitle">Resumen y cumplimiento</div>
+            </div>
+            <div class="controls-row">
+              <label class="muted">Periodo:</label>
+              <select id="periodSelect" style="margin-left:6px">
+                <option value="all">Acumulado</option>
+                <option value="today">Hoy</option>
+                <option value="week">Esta semana</option>
+                <option value="month">Este mes</option>
+              </select>
+            </div>
+          </div>
+
+          <div style="margin-top:12px" class="top-cards">
+            <div class="card stat">
+              <div class="muted">Meta total</div>
+              <div class="big" id="statMeta">-</div>
+              <div class="small muted">Meta asignada al asesor</div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">Total vendido</div>
+              <div class="big" id="statTotal">-</div>
+              <div class="small muted">Suma de ventas en el periodo</div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">% Cumplimiento</div>
+              <div class="big" id="statPercent">-</div>
+              <div class="goal-bar" style="margin-top:8px"><div id="goalFill" style="width:0%"></div></div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">Unidades vendidas</div>
+              <div class="big" id="statUnits">-</div>
+              <div class="small muted">Suma de unidades</div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">Nº de facturas</div>
+              <div class="big" id="statInvoices">-</div>
+              <div class="small muted">Cantidad de facturas en el periodo</div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">Unidad promedio</div>
+              <div class="big" id="statUnitAvg">-</div>
+              <div class="small muted">Total unidades ÷ #facturas</div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">Factura promedio</div>
+              <div class="big" id="statInvoiceAvg">-</div>
+              <div class="small muted">Total vendido ÷ #facturas</div>
+            </div>
+
+            <div class="card stat">
+              <div class="muted">Presupuesto faltante</div>
+              <div class="big" id="statRemaining">-</div>
+              <div class="small muted">Meta - Total vendido</div>
+            </div>
+            <div class="card stat">
+              <div class="muted">💰 Comisión generada</div>
+              <div class="big" id="statCommission">-</div>
+              <div class="small muted">Comisión total del periodo</div>
+            </div>
+          </div>
+
+          <div style="margin-top:12px">
+            <h4>Histórico diario</h4>
+            <div class="muted">Registros guardados por fecha. Haz clic en una fila para editar o eliminar.</div>
+            <table class="history-table" id="historyTable">
+              <thead><tr><th>Fecha</th><th>Unidades</th><th>Facturas</th><th>Total</th><th>Comisión</th><th>Acciones</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </main>
+    </div>
+  </div>
+
+  <script>
+    // Keys
+    const KEY_SALES = 'cva_sales'
+    const KEY_ADVISORS = 'cva_advisors'
+    const KEY_METAS = 'cva_metas'
+
+    // State
+    let sales = JSON.parse(localStorage.getItem(KEY_SALES) || '[]')
+    let advisors = JSON.parse(localStorage.getItem(KEY_ADVISORS) || '[]')
+    let metas = JSON.parse(localStorage.getItem(KEY_METAS) || '{}')
+
+    // DOM
+    const saleDate = document.getElementById('saleDate')
+    const advisorSelect = document.getElementById('advisorSelect')
+    const newAdvisorName = document.getElementById('newAdvisorName')
+    const addAdvisorBtn = document.getElementById('addAdvisorBtn')
+    const unitsInput = document.getElementById('unitsInput')
+    const invoicesInput = document.getElementById('invoicesInput')
+    const totalInput = document.getElementById('totalInput')
+    const saveSaleBtn = document.getElementById('saveSaleBtn')
+    const clearFormBtn = document.getElementById('clearFormBtn')
+
+    const metaAdvisorSelect = document.getElementById('metaAdvisorSelect')
+    const metaInput = document.getElementById('metaInput')
+    const saveMetaBtn = document.getElementById('saveMetaBtn')
+    const deleteMetaBtn = document.getElementById('deleteMetaBtn')
+
+    const dashboardTitle = document.getElementById('dashboardTitle')
+    const dashboardSubtitle = document.getElementById('dashboardSubtitle')
+    const periodSelect = document.getElementById('periodSelect')
+
+    const statMeta = document.getElementById('statMeta')
+    const statTotal = document.getElementById('statTotal')
+    const statPercent = document.getElementById('statPercent')
+    const goalFill = document.getElementById('goalFill')
+    const statUnits = document.getElementById('statUnits')
+    const statInvoices = document.getElementById('statInvoices')
+    const statUnitAvg = document.getElementById('statUnitAvg')
+    const statInvoiceAvg = document.getElementById('statInvoiceAvg')
+    const statRemaining = document.getElementById('statRemaining')
+
+    const historyTableBody = document.querySelector('#historyTable tbody')
+
+    const exportCsvBtn = document.getElementById('exportCsvBtn')
+    const resetAllBtn = document.getElementById('resetAllBtn')
+
+    // helpers
+    function saveState(){ localStorage.setItem(KEY_SALES, JSON.stringify(sales)); localStorage.setItem(KEY_ADVISORS, JSON.stringify(advisors)); localStorage.setItem(KEY_METAS, JSON.stringify(metas)); }
+    function formatCurrency(v){ return new Intl.NumberFormat('es-CO',{style:'currency',currency:'COP',maximumFractionDigits:2}).format(v) }
+    function todayISO(){ const d=new Date(); return d.toISOString().slice(0,10) }
+
+    // init defaults
+    (function init(){
+      // default date today
+      saleDate.value = todayISO()
+      // load advisors if none (example)
+      if(advisors.length===0){ advisors = ['Juan Pérez','Ana Gómez']; saveState(); }
+      rebuildAdvisorSelectors()
+      renderDashboard()
+    })()
+
+    // advisor management
+    addAdvisorBtn.addEventListener('click', ()=>{
+      const name = newAdvisorName.value.trim()
+      if(!name){ alert('Ingresa nombre del asesor'); return }
+      if(advisors.includes(name)){ alert('Asesor ya existe'); return }
+      advisors.push(name); newAdvisorName.value=''; rebuildAdvisorSelectors(); saveState();
+    })
+
+    function rebuildAdvisorSelectors(){
+      advisorSelect.innerHTML = ''
+      metaAdvisorSelect.innerHTML = ''
+      const o0 = document.createElement('option'); o0.value=''; o0.textContent='-- Selecciona asesor --'; advisorSelect.appendChild(o0)
+      advisors.forEach(a=>{
+        const o = document.createElement('option'); o.value=a; o.textContent=a; advisorSelect.appendChild(o)
+        const m = document.createElement('option'); m.value=a; m.textContent=a; metaAdvisorSelect.appendChild(m)
+      })
+      // set meta select default
+      if(metaAdvisorSelect.options.length>0) metaAdvisorSelect.selectedIndex = 0
+    }
+
+    // save sale
+    saveSaleBtn.addEventListener('click', ()=>{
+      const date = saleDate.value
+      const advisor = advisorSelect.value
+      const units = parseInt(unitsInput.value) || 0
+      const invoices = parseInt(invoicesInput.value) || 0
+      const total = parseFloat(totalInput.value) || 0
+      if(!advisor){ alert('Selecciona un asesor'); return }
+      if(invoices <= 0){ alert('El número de facturas debe ser al menos 1'); return }
+      // check if record for same date and advisor exists -> append or update? we'll append new record. If you prefer replace, we can change.
+      const id = 's_' + Math.random().toString(36).slice(2,9)
+      sales.push({id,date,advisor,units,invoices,total})
+      saveState();
+      alert('Registro guardado')
+      // clear form numbers
+      unitsInput.value='0'; invoicesInput.value='1'; totalInput.value='0'
+      renderDashboard()
+    })
+
+    clearFormBtn.addEventListener('click', ()=>{ unitsInput.value='0'; invoicesInput.value='1'; totalInput.value='0' })
+
+    // metas
+    saveMetaBtn.addEventListener('click', ()=>{
+      const a = metaAdvisorSelect.value
+      const v = parseFloat(metaInput.value) || 0
+      if(!a){ alert('Selecciona un asesor'); return }
+      metas[a] = v
+      saveState(); alert('Meta guardada'); renderDashboard()
+    })
+    deleteMetaBtn.addEventListener('click', ()=>{
+      const a = metaAdvisorSelect.value
+      if(!a) return; if(confirm('Eliminar meta para ' + a + '?')){ delete metas[a]; saveState(); renderDashboard(); }
+    })
+
+    // render dashboard for selected advisor
+    function renderDashboard(){
+      const selected = advisorSelect.value || advisors[0] || null
+      if(!selected){ dashboardTitle.textContent = 'Visor: (sin asesores)'; dashboardSubtitle.textContent='Añade asesores en el panel izquierdo'; clearStats(); return }
+      dashboardTitle.textContent = 'Visor: ' + selected
+      dashboardSubtitle.textContent = 'Periodo: ' + (periodSelect.options[periodSelect.selectedIndex].text)
+
+      // filter sales per advisor and period
+      const period = periodSelect.value
+      const filtered = sales.filter(s => s.advisor === selected && inPeriod(s.date, period))
+
+      const totalSold = filtered.reduce((s,r)=> s + r.total, 0)
+      const totalUnits = filtered.reduce((s,r)=> s + r.units, 0)
+      const totalInvoices = filtered.reduce((s,r)=> s + r.invoices, 0)
+      const meta = metas[selected] || 0
+      const percent = meta>0 ? Math.min(100, Math.round((totalSold/meta)*100)) : 0
+      const unitAvg = totalInvoices>0 ? (totalUnits/totalInvoices) : 0
+      const invoiceAvg = totalInvoices>0 ? (totalSold/totalInvoices) : 0
+      const remaining = Math.max(0, meta - totalSold)
+      const totalCommission = filtered.reduce((sum, r)=> sum + (r.total * (getCommissionFactor(meta>0? (r.total/meta*100):0)/100)), 0)
+
+      statMeta.textContent = meta>0 ? formatCurrency(meta) : '-'
+      statTotal.textContent = formatCurrency(totalSold)
+      statPercent.textContent = percent + '%'
+      goalFill.style.width = percent + '%'
+      statUnits.textContent = totalUnits
+      statInvoices.textContent = totalInvoices
+      statUnitAvg.textContent = totalInvoices>0 ? (Math.round(unitAvg*100)/100) : '-'
+      statInvoiceAvg.textContent = totalInvoices>0 ? formatCurrency(invoiceAvg) : '-'
+      statRemaining.textContent = meta>0 ? formatCurrency(remaining) : '-'
+      statCommission.textContent = formatCurrency(totalCommission)
+
+      // render history for this advisor (all dates across entire history, allow filtering by period by selecting period)
+      const historyList = sales.filter(s=> s.advisor === selected).sort((a,b)=> new Date(b.date) - new Date(a.date))
+      historyTableBody.innerHTML = ''
+      historyList.forEach(r=>{
+        const tr = document.createElement('tr')
+        const commissionFactor = (meta>0)? getCommissionFactor((r.total/meta)*100) : 0;
+    const commission = r.total * (commissionFactor/100);
+    tr.innerHTML = `<td>${r.date}</td><td>${r.units}</td><td>${r.invoices}</td><td>${formatCurrency(r.total)}</td><td>${formatCurrency(commission)}</td><td><button class='editBtn' data-id='${r.id}'>Editar</button> <button class='deleteBtn' data-id='${r.id}'>Eliminar</button></td>`
+        historyTableBody.appendChild(tr)
+      })
+
+      // attach edit/delete
+      Array.from(document.querySelectorAll('.editBtn')).forEach(b => b.addEventListener('click', e=> editRecord(e.target.dataset.id)))
+      Array.from(document.querySelectorAll('.deleteBtn')).forEach(b => b.addEventListener('click', e=> deleteRecord(e.target.dataset.id)))
+
+      // set meta selector value to this advisor
+      if(metaAdvisorSelect.querySelector(`option[value='${selected}']`)) metaAdvisorSelect.value = selected
+    }
+
+    function clearStats(){ statMeta.textContent='-'; statTotal.textContent='-'; statPercent.textContent='-'; goalFill.style.width='0%'; statUnits.textContent='-'; statInvoices.textContent='-'; statUnitAvg.textContent='-'; statInvoiceAvg.textContent='-'; statRemaining.textContent='-'; historyTableBody.innerHTML=''; }
+
+    // period helper
+    function inPeriod(dateStr, period){
+      if(period==='all') return true
+      const d = new Date(dateStr)
+      const now = new Date()
+      if(period==='today') return d.toISOString().slice(0,10) === now.toISOString().slice(0,10)
+      if(period==='month') return d.getFullYear()===now.getFullYear() && d.getMonth()===now.getMonth()
+      if(period==='week'){
+        // compare ISO week start (Monday)
+        const getMonday = dt=>{ const c=new Date(dt); const day = c.getDay(); const diff = (day===0? -6 : 1)-day; c.setDate(c.getDate()+diff); c.setHours(0,0,0,0); return c }
+        const m1 = getMonday(d); const m2 = getMonday(now); return m1.getFullYear()===m2.getFullYear() && m1.getMonth()===m2.getMonth() && m1.getDate()===m2.getDate()
+      }
+      return true
+    }
+
+    // edit record
+    function editRecord(id){ const rec = sales.find(s=>s.id===id); if(!rec) return; if(!confirm('Cargar registro para editar? Los cambios se guardarán.')) return; saleDate.value = rec.date; advisorSelect.value = rec.advisor; unitsInput.value = rec.units; invoicesInput.value = rec.invoices; totalInput.value = rec.total; // when saving new, we'll remove old one
+      // remove old record immediately so save creates new entry
+      sales = sales.filter(s => s.id !== id); saveState(); renderDashboard(); }
+
+    function deleteRecord(id){ if(!confirm('Eliminar registro?')) return; sales = sales.filter(s=> s.id !== id); saveState(); renderDashboard(); }
+
+    // period change or advisor change
+    periodSelect.addEventListener('change', ()=> renderDashboard())
+    advisorSelect.addEventListener('change', ()=> renderDashboard())
+    metaAdvisorSelect.addEventListener('change', ()=>{
+      const a = metaAdvisorSelect.value; metaInput.value = metas[a] || 0
+    })
+
+    // edit/delete from history row already handled above
+
+    // export CSV
+    exportCsvBtn.addEventListener('click', ()=>{
+      if(sales.length===0){ alert('No hay registros para exportar'); return }
+      const rows = [['id','date','advisor','units','invoices','total']]
+      sales.forEach(s=> rows.push([s.id,s.date,s.advisor,s.units,s.invoices,s.total]))
+      const csv = rows.map(r=> r.map(c=> '"'+String(c).replace(/"/g,'""')+'"').join(',')).join('\n')
+      const blob = new Blob([csv], {type:'text/csv;charset=utf-8;'}); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'cva_sales_export.csv'; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    })
+
+    // reset all data
+    resetAllBtn.addEventListener('click', ()=>{
+      if(!confirm('Borrar todos los registros, asesores y metas?')) return; sales=[]; advisors=[]; metas={}; saveState(); rebuildAdvisorSelectors(); renderDashboard(); alert('Datos borrados')
+    })
+
+    // helpers: edit, delete already
+    function deleteAdvisor(name){ if(!confirm('Eliminar asesor y sus registros?')) return; advisors = advisors.filter(a=> a!==name); sales = sales.filter(s=> s.advisor !== name); delete metas[name]; saveState(); rebuildAdvisorSelectors(); renderDashboard(); }
+
+    // edit advisor name (not implemented UI — could add later)
+
+    // utility functions
+    function formatCurrencySmall(v){ return formatCurrency(v) }
+
+    
+    function getCommissionFactor(percent){
+      if(percent < 90) return 0.00;
+      if(percent < 100) return 0.90;
+      if(percent < 105) return 1.20;
+      if(percent < 110) return 1.30;
+      if(percent < 120) return 1.35;
+      if(percent < 150) return 1.40;
+      return 1.50;
+    }
+
+    // initial render of dashboard
+    renderDashboard()
+  </script>
+</body>
+</html>
