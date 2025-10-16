@@ -1,2 +1,0 @@
-# seguimientodeventa
-Seguimiento de venta
